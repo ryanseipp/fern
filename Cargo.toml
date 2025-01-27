@@ -1,0 +1,21 @@
+[workspace]
+members = ["fern-*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Ryan Seipp"]
+description = "Fast, Efficient, Reliable, Networking software"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+
+[workspace.metadata.crane]
+name = "fern"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+debug = true
