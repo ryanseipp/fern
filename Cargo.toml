@@ -1,18 +1,41 @@
 [workspace]
 members = ["fern-*"]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-authors = ["Ryan Seipp"]
+rust-version = "1.85"
+authors = ["Ryan Seipp <ryanseipp AT ryanseipp DOT us>"]
 description = "Fast, Efficient, Reliable, Networking software"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/ryanseipp/fern"
+readme = "README.md"
 
 [workspace.dependencies]
 
 [workspace.metadata.crane]
 name = "fern"
+
+[workspace.lints.rust]
+warnings = "deny"
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+missing_copy_implementations = "deny"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+unstable_features = "deny"
+unused_import_braces = "deny"
+unused_qualifications = "deny"
+
+[workspace.lints.clippy]
+correctness = "deny"
+suspicious = "deny"
+complexity = "deny"
+perf = "deny"
+style = "deny"
+pedantic = "deny"
+cargo = "deny"
 
 [profile.release]
 codegen-units = 1

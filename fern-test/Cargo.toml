@@ -1,9 +1,14 @@
 [package]
 name = "fern-test"
+homepage = "https://github.com/ryanseipp/fern/tree/main/fern-test"
+categories = ["development-tools::debugging"]
+keywords = ["io_uring", "linux", "asynchronous"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 description.workspace = true
 license.workspace = true
+repository.workspace = true
+readme.workspace = true
 
 [dependencies]
