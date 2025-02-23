@@ -18,6 +18,10 @@ workspace = true
 [dependencies]
 bitflags = { version = "2.8.0", default-features = false }
 rustix = { version = "0.38.44", default-features = false, features = [
+  "system",
   "io_uring",
   "mm",
 ] }
+
+[dev-dependencies]
+semver = "1.0.25"
