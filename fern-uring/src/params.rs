@@ -1,7 +1,8 @@
 //! Parameters for an `IoUring` instance.
 
-use rustix::fd::BorrowedFd;
-use rustix::io_uring::IoringSetupFlags;
+use rustix::fd::{AsRawFd, BorrowedFd};
+use rustix::io_uring::{IoringSetupFlags, io_uring_params};
+
 #[cfg(doc)]
 use rustix::io_uring::IoringSqFlags;
 
@@ -9,16 +10,9 @@ use rustix::io_uring::IoringSqFlags;
 /// operations. Some options may result in performance improvements under
 /// specific circumstances.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct Params<'fd> {
-    sq_entries: u32,
-    cq_entries: u32,
-    sq_thread_idle: u32,
-    sq_thread_cpu: u32,
-    work_queue_fd: Option<BorrowedFd<'fd>>,
-    flags: IoringSetupFlags,
-}
+pub struct Params(io_uring_params);
 
-impl<'fd> Params<'fd> {
+impl Params {
     /// Create a new Params instance
     #[must_use]
     pub fn new() -> Self {
@@ -38,7 +32,7 @@ impl<'fd> Params<'fd> {
     /// configured for polling. How to do that depends on the device type in question.
     #[must_use]
     pub const fn with_io_poll(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::IOPOLL);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::IOPOLL);
 
         self
     }
@@ -58,9 +52,9 @@ impl<'fd> Params<'fd> {
     /// [`NEED_WAKEUP`]: IoringSqFlags::NEED_WAKEUP
     #[must_use]
     pub const fn with_sq_poll(mut self, sq_thread_idle: Option<u32>) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::SQPOLL);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::SQPOLL);
         if let Some(sq_thread_idle) = sq_thread_idle {
-            self.sq_thread_idle = sq_thread_idle;
+            self.0.sq_thread_idle = sq_thread_idle;
         }
 
         self
@@ -72,8 +66,8 @@ impl<'fd> Params<'fd> {
     /// cgroup setting `cpuset.cpus` changes, the bound CPU set may be changed as well.
     #[must_use]
     pub const fn with_sq_affinity(mut self, sq_thread_cpu: u32) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::SQ_AFF);
-        self.sq_thread_cpu = sq_thread_cpu;
+        self.0.flags = self.0.flags.union(IoringSetupFlags::SQ_AFF);
+        self.0.sq_thread_cpu = sq_thread_cpu;
 
         self
     }
@@ -81,7 +75,7 @@ impl<'fd> Params<'fd> {
     /// Specify the number of submission queue entries. May be rounded to the next power of two.
     #[must_use]
     pub const fn with_sq_size(mut self, sq_size: u32) -> Self {
-        self.sq_entries = sq_size.next_power_of_two();
+        self.0.sq_entries = sq_size.next_power_of_two();
 
         self
     }
@@ -90,18 +84,21 @@ impl<'fd> Params<'fd> {
     /// entries, and may be rounded to the next power of two.
     #[must_use]
     pub const fn with_cq_size(mut self, cq_size: u32) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::CQSIZE);
-        self.cq_entries = cq_size.next_power_of_two();
+        self.0.flags = self.0.flags.union(IoringSetupFlags::CQSIZE);
+        self.0.cq_entries = cq_size.next_power_of_two();
 
         self
     }
 
     /// Share the asynchronous worker thread backend of the specified `ring_fd` `io_uring`
     /// instance. The polling thread will also be shared, if both rings are setup with [`Self::with_sq_poll`].
+    // we check that the fd can't be negative, which should also be impossible with a BorrowedFd
+    #[allow(clippy::cast_sign_loss)]
     #[must_use]
-    pub const fn with_attached_work_queue<'a: 'fd>(mut self, ring_fd: BorrowedFd<'a>) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::ATTACH_WQ);
-        self.work_queue_fd = Some(ring_fd);
+    pub fn with_attached_work_queue(mut self, ring_fd: BorrowedFd) -> Self {
+        let raw_fd = ring_fd.as_raw_fd();
+        self.0.flags = self.0.flags.union(IoringSetupFlags::ATTACH_WQ);
+        self.0.wq_fd = raw_fd;
 
         self
     }
@@ -114,7 +111,7 @@ impl<'fd> Params<'fd> {
     /// Available since Linux 5.10
     #[must_use]
     pub const fn with_disabled_ring(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::R_DISABLED);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::R_DISABLED);
 
         self
     }
@@ -128,7 +125,7 @@ impl<'fd> Params<'fd> {
     /// Available since Linux 5.18
     #[must_use]
     pub const fn with_submit_all(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::SUBMIT_ALL);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::SUBMIT_ALL);
 
         self
     }
@@ -146,8 +143,8 @@ impl<'fd> Params<'fd> {
     /// Available since Linux 5.19
     #[must_use]
     pub const fn with_cooperative_taskrun(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::COOP_TASKRUN);
-        self.flags = self.flags.union(IoringSetupFlags::TASKRUN_FLAG);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::COOP_TASKRUN);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::TASKRUN_FLAG);
 
         self
     }
@@ -165,7 +162,7 @@ impl<'fd> Params<'fd> {
     /// Available since Linux 6.0
     #[must_use]
     pub const fn with_single_issuer(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::SINGLE_ISSUER);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::SINGLE_ISSUER);
 
         self
     }
@@ -182,7 +179,7 @@ impl<'fd> Params<'fd> {
     /// Available since Linux 6.1
     #[must_use]
     pub const fn with_deferred_taskrun(mut self) -> Self {
-        self.flags = self.flags.union(IoringSetupFlags::DEFER_TASKRUN);
+        self.0.flags = self.0.flags.union(IoringSetupFlags::DEFER_TASKRUN);
 
         self
     }
@@ -190,10 +187,7 @@ impl<'fd> Params<'fd> {
 
 #[cfg(test)]
 mod test {
-    use rustix::{
-        fd::{AsRawFd, BorrowedFd},
-        io_uring::IoringSetupFlags,
-    };
+    use rustix::{fd::BorrowedFd, io_uring::IoringSetupFlags};
 
     use super::Params;
 
@@ -214,18 +208,18 @@ mod test {
     fn creates_default_parameters() {
         let params = Params::new();
 
-        assert_eq!(params.sq_entries, 0);
-        assert_eq!(params.cq_entries, 0);
-        assert_eq!(params.sq_thread_cpu, 0);
-        assert_eq!(params.sq_thread_idle, 0);
-        assert!(params.work_queue_fd.is_none());
-        assert_eq!(params.flags, IoringSetupFlags::empty());
+        assert_eq!(params.0.sq_entries, 0);
+        assert_eq!(params.0.cq_entries, 0);
+        assert_eq!(params.0.sq_thread_cpu, 0);
+        assert_eq!(params.0.sq_thread_idle, 0);
+        assert_eq!(params.0.wq_fd, 0);
+        assert_eq!(params.0.flags, IoringSetupFlags::empty());
     }
 
     #[test]
     fn sets_appropriate_flags() {
         struct TestCase {
-            func: fn(Params<'_>) -> Params<'_>,
+            func: fn(Params) -> Params,
             flags: Vec<IoringSetupFlags>,
         }
 
@@ -259,12 +253,13 @@ mod test {
             },
         ];
 
+        // check individual function calls against flags
         for test_case in &expected {
             let params = Params::new();
             let result = (test_case.func)(params);
 
             for flag in &test_case.flags {
-                assert!(result.flags.contains(*flag));
+                assert!(result.0.flags.contains(*flag));
             }
         }
     }
@@ -272,57 +267,65 @@ mod test {
     #[test]
     fn sets_sq_poll_without_cpu() {
         let params = Params::new().with_sq_poll(None);
-        assert!(params.flags.contains(IoringSetupFlags::SQPOLL));
-        assert_eq!(params.sq_thread_idle, 0);
+        assert!(params.0.flags.contains(IoringSetupFlags::SQPOLL));
+        assert_eq!(params.0.sq_thread_idle, 0);
     }
 
     #[test]
     fn sets_sq_poll_with_cpu() {
         let params = Params::new().with_sq_poll(Some(1));
-        assert!(params.flags.contains(IoringSetupFlags::SQPOLL));
-        assert_eq!(params.sq_thread_idle, 1);
+        assert!(params.0.flags.contains(IoringSetupFlags::SQPOLL));
+        assert_eq!(params.0.sq_thread_idle, 1);
     }
 
     #[test]
     fn sets_sq_affinity() {
         let params = Params::new().with_sq_affinity(1);
-        assert!(params.flags.contains(IoringSetupFlags::SQ_AFF));
-        assert_eq!(params.sq_thread_cpu, 1);
+        assert!(params.0.flags.contains(IoringSetupFlags::SQ_AFF));
+        assert_eq!(params.0.sq_thread_cpu, 1);
     }
 
     #[test]
     fn sets_sq_size() {
         let params = Params::new().with_sq_size(2);
-        assert_eq!(params.sq_entries, 2);
+        assert_eq!(params.0.sq_entries, 2);
     }
 
     #[test]
     fn sets_sq_size_to_next_power_of_two() {
         let params = Params::new().with_sq_size(3);
-        assert_eq!(params.sq_entries, 4);
+        assert_eq!(params.0.sq_entries, 4);
     }
 
     #[test]
     fn sets_cq_size() {
         let params = Params::new().with_cq_size(2);
-        assert_eq!(params.cq_entries, 2);
+        assert_eq!(params.0.cq_entries, 2);
     }
 
     #[test]
     fn sets_cq_size_to_next_power_of_two() {
         let params = Params::new().with_cq_size(3);
-        assert_eq!(params.cq_entries, 4);
+        assert_eq!(params.0.cq_entries, 4);
     }
 
+    #[allow(clippy::cast_sign_loss)]
     #[test]
     fn sets_attached_work_queue() {
         let raw_fd = 1;
         let fd = unsafe { BorrowedFd::borrow_raw(raw_fd) };
         let params = Params::new().with_attached_work_queue(fd);
-        assert!(
-            params
-                .work_queue_fd
-                .is_some_and(|fd| fd.as_raw_fd() == raw_fd)
-        );
+        assert_eq!(params.0.wq_fd, raw_fd);
+    }
+
+    #[test]
+    fn nicely_chained_function_calls_compiles() {
+        let params = Params::new()
+            .with_sq_size(32)
+            .with_cq_size(64)
+            .with_cooperative_taskrun()
+            .with_single_issuer();
+
+        assert!(!params.0.flags.is_empty());
     }
 }
