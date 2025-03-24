@@ -165,6 +165,7 @@
           checks = self.checks.${system};
 
           packages = with pkgs; [
+            cargo-show-asm
             cargo-deny
             cargo-outdated
             cargo-watch
