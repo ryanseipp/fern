@@ -1,0 +1,23 @@
+[package]
+name = "fern-benchmarks"
+version = "0.0.0"
+categories = ["bench"]
+keywords = ["bench"]
+readme = "../README.md"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+divan.workspace = true
+fern-uring = { path = '../fern-uring', features = ["internal_benches"] }
+
+[lints.clippy]
+cargo-common-metadata = "allow"
+
+[[bench]]
+name = "internals"
+harness = false
