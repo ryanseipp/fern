@@ -22,16 +22,12 @@ rustix = { version = "1.0.1", default-features = false, features = [
   "io_uring",
   "mm",
 ] }
+divan = { workspace = true, optional = true }
 
 [dev-dependencies]
 semver = "1.0.26"
 loom = "0.7.2"
-divan = "0.1.17"
 
-[[bench]]
-name = "producer"
-harness = false
-
-[[bench]]
-name = "consumer"
-harness = false
+[features]
+# Benchmark internals. Not meant for public use.
+internal_benches = ["dep:divan"]

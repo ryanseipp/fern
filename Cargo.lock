@@ -97,6 +97,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fern-benchmarks"
+version = "0.0.0"
+dependencies = [
+ "divan",
+ "fern-uring",
+]
+
+[[package]]
 name = "fern-test"
 version = "0.1.0"
 

@@ -393,3 +393,30 @@ mod test {
         });
     }
 }
+
+#[cfg(feature = "internal_benches")]
+mod benches {
+    use divan::{Bencher, counter::ItemsCount};
+
+    use super::{AtomicU32, Ordering, RingBufferConsumer};
+
+    const LENGTHS: &[usize] = &[64, 128, 1024, 2048];
+
+    #[divan::bench(consts = LENGTHS)]
+    fn consumer<const N: usize>(bencher: Bencher) {
+        let entries = vec![0u32; N];
+        let head = AtomicU32::new(0);
+        let tail = AtomicU32::new(0);
+        let mask = u32::try_from(N).unwrap() - 1;
+        let consumer = RingBufferConsumer::new(&entries, &head, &tail, mask).unwrap();
+
+        bencher.counter(ItemsCount::new(N)).bench(|| {
+            tail.fetch_add(u32::try_from(N).unwrap(), Ordering::Release);
+            for _ in 0..N {
+                if let Some(item) = consumer.reserve() {
+                    let _ = consumer.commit(item);
+                }
+            }
+        });
+    }
+}
