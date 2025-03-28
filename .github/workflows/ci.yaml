@@ -17,12 +17,15 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d # v16
+        uses: nixbuild/nix-quick-install-action@5bb6a3b3abe66fd09bbf250dce8ada94f856a703 #v30
 
-      - name: Cache Nix Derivations
-        uses: DeterminateSystems/flakehub-cache-action@146f476c94460cb634f9ade79470fcbc3f7e5b36 # v1
+      - name: Cache Nix
+        uses: nix-community/cache-nix-action@c448f065ba14308da81de769632ca67a3ce67cf5 # v6
         with:
-          use-flakehub: false
+          primary-key:
+            nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size: 2G
 
       - name: Check Flake
         uses: DeterminateSystems/flake-checker-action@078f5f7f47ee188aa6cb472527ca5984e195222d # v9
