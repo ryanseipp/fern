@@ -56,3 +56,75 @@ impl<T> Deref for ReservedEntry<'_, T> {
         self.entry
     }
 }
+
+#[cfg(test)]
+mod test {
+    use loom::thread::{self, yield_now};
+
+    use crate::sync::Arc;
+    use crate::sync::atomic::{AtomicU32, Ordering};
+    use crate::{RingBufferConsumer, RingBufferProducer};
+
+    #[test]
+    fn producer_and_consumer_work_together_to_avoid_deadlocks() {
+        let mut model = loom::model::Builder::new();
+        // limit search space or this will run for a long time
+        model.preemption_bound = Some(3);
+
+        model.check(|| {
+            const ENTRIES: usize = 2;
+            let entries = Arc::new(vec![0u32; ENTRIES]);
+            let c_entries = entries.clone();
+            let p_entries = entries.clone();
+
+            let mask = u32::try_from(ENTRIES).unwrap() - 1;
+
+            let head = Arc::new(AtomicU32::new(0));
+            let c_head = head.clone();
+            let p_head = head.clone();
+
+            let tail = Arc::new(AtomicU32::new(u32::try_from(ENTRIES).unwrap()));
+            let c_tail = tail.clone();
+            let p_tail = tail.clone();
+
+            thread::spawn(move || {
+                let consumer = RingBufferConsumer::new(&c_entries, &c_head, &c_tail, mask).unwrap();
+
+                for _ in 0..=ENTRIES {
+                    loop {
+                        if let Some(result) = consumer.reserve() {
+                            let _ = consumer.commit(result);
+                            break;
+                        }
+
+                        yield_now();
+                    }
+                }
+
+                // c_tail can be anything when we get here. We only care that the head reached a
+                // certain point, consuming a certain number of entries.
+                assert_eq!(ENTRIES + 1, c_head.load(Ordering::Acquire) as usize);
+            });
+
+            thread::spawn(move || {
+                let producer = RingBufferProducer::new(&p_entries, &p_head, &p_tail, mask).unwrap();
+
+                for _ in 0..=ENTRIES {
+                    loop {
+                        if let Some(result) = producer.reserve() {
+                            let _ = producer.commit(result);
+                            break;
+                        }
+
+                        yield_now();
+                    }
+                }
+
+                // p_head must be in a certain location for p_tail to reach its desired point,
+                // producing a certain number of entries.
+                assert_eq!(ENTRIES + 1, p_head.load(Ordering::Acquire) as usize);
+                assert_eq!(ENTRIES * 2 + 1, p_tail.load(Ordering::Acquire) as usize);
+            });
+        });
+    }
+}

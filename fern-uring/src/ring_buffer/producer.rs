@@ -289,9 +289,9 @@ mod test {
             let head = AtomicU32::new(0);
             let tail = AtomicU32::new(32);
             let mask = 32 - 1;
-            let consumer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
+            let producer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
 
-            let result = consumer.reserve();
+            let result = producer.reserve();
 
             assert!(result.is_none());
         });
@@ -304,11 +304,11 @@ mod test {
             let head = AtomicU32::new(0);
             let tail = AtomicU32::new(0);
             let mask = 32 - 1;
-            let consumer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
+            let producer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
 
-            let result = consumer.reserve().unwrap();
+            let result = producer.reserve().unwrap();
             assert_eq!(tail.load(Ordering::Acquire), 0);
-            let _ = consumer.commit(result);
+            let _ = producer.commit(result);
             assert_eq!(tail.load(Ordering::Acquire), 1);
         });
     }
@@ -321,12 +321,12 @@ mod test {
             let head = AtomicU32::new(0);
             let tail = AtomicU32::new(0);
             let mask = u32::try_from(ENTRIES).unwrap() - 1;
-            let consumer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
+            let producer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
 
-            let _entry1 = consumer.reserve().unwrap();
-            let entry2 = consumer.reserve().unwrap();
+            let _entry1 = producer.reserve().unwrap();
+            let entry2 = producer.reserve().unwrap();
 
-            let result = consumer.commit(entry2);
+            let result = producer.commit(entry2);
 
             assert!(result.is_err_and(|e| e == RingBufferError::CommitOutOfOrder));
         });
@@ -348,11 +348,11 @@ mod test {
             });
 
             thread::spawn(move || {
-                let consumer = RingBufferProducer::new(&entries, &r_head, &r_tail, mask).unwrap();
+                let producer = RingBufferProducer::new(&entries, &r_head, &r_tail, mask).unwrap();
 
                 loop {
-                    if let Some(result) = consumer.reserve() {
-                        let _ = consumer.commit(result);
+                    if let Some(result) = producer.reserve() {
+                        let _ = producer.commit(result);
                         assert_eq!(33, r_tail.load(Ordering::Acquire));
                         return;
                     }
@@ -378,12 +378,12 @@ mod benches {
         let head = AtomicU32::new(0);
         let tail = AtomicU32::new(0);
         let mask = u32::try_from(N).unwrap() - 1;
-        let consumer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
+        let producer = RingBufferProducer::new(&entries, &head, &tail, mask).unwrap();
 
         bencher.counter(ItemsCount::new(N)).bench(|| {
             for _ in 0..N {
-                if let Some(item) = consumer.reserve() {
-                    let _ = consumer.commit(item);
+                if let Some(item) = producer.reserve() {
+                    let _ = producer.commit(item);
                 }
             }
             head.fetch_add(u32::try_from(N).unwrap(), Ordering::Release)
