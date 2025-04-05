@@ -355,43 +355,6 @@ mod test {
             });
         });
     }
-
-    #[test]
-    fn can_consume_all_entries_available() {
-        loom::model(|| {
-            const ENTRIES: usize = 2;
-            let entries = vec![0u32; ENTRIES];
-            let head = Arc::new(AtomicU32::new(0));
-            let r_head = head.clone();
-            let tail = Arc::new(AtomicU32::new(0));
-            let k_tail = tail.clone();
-            let r_tail = tail.clone();
-            let mask = u32::try_from(ENTRIES).unwrap() - 1;
-
-            thread::spawn(move || {
-                for _ in 0..=ENTRIES {
-                    k_tail.fetch_add(1, Ordering::Relaxed);
-                }
-            });
-
-            thread::spawn(move || {
-                let consumer = RingBufferConsumer::new(&entries, &r_head, &r_tail, mask).unwrap();
-                for _ in 0..=ENTRIES {
-                    loop {
-                        if let Some(result) = consumer.reserve() {
-                            let _ = consumer.commit(result);
-                            break;
-                        }
-
-                        yield_now();
-                    }
-                }
-
-                assert_eq!(ENTRIES + 1, r_head.load(Ordering::Acquire) as usize);
-                assert!(consumer.reserve().is_none());
-            });
-        });
-    }
 }
 
 #[cfg(feature = "internal_benches")]

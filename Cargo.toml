@@ -13,7 +13,7 @@ repository = "https://github.com/ryanseipp/fern"
 readme = "README.md"
 
 [workspace.dependencies]
-divan = "0.1.17"
+divan = "0.1.18"
 
 [workspace.metadata.crane]
 name = "fern"
